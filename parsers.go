@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -43,8 +44,9 @@ type IPMeResponse struct {
 
 // GeoAPIResult результат запроса к одному API
 type GeoAPIResult struct {
-	City  string
-	Error error
+	APIName string // Название API для идентификации
+	City    string
+	Error   error
 }
 
 // fetchFromIPInfo запрашивает данные от ipinfo.io
@@ -58,25 +60,25 @@ func fetchFromIPInfo(ip string) GeoAPIResult {
 
 	resp, err := client.Get(url)
 	if err != nil {
-		return GeoAPIResult{Error: fmt.Errorf("ipinfo.io request failed: %w", err)}
+		return GeoAPIResult{APIName: "ipinfo.io", Error: fmt.Errorf("ipinfo.io request failed: %w", err)}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return GeoAPIResult{Error: fmt.Errorf("ipinfo.io returned status %d", resp.StatusCode)}
+		return GeoAPIResult{APIName: "ipinfo.io", Error: fmt.Errorf("ipinfo.io returned status %d", resp.StatusCode)}
 	}
 
 	var result IPInfoResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return GeoAPIResult{Error: fmt.Errorf("ipinfo.io json decode failed: %w", err)}
+		return GeoAPIResult{APIName: "ipinfo.io", Error: fmt.Errorf("ipinfo.io json decode failed: %w", err)}
 	}
 
 	// Проверяем, что город не пустой
 	if result.City == "" {
-		return GeoAPIResult{Error: fmt.Errorf("ipinfo.io: city field is empty")}
+		return GeoAPIResult{APIName: "ipinfo.io", Error: fmt.Errorf("ipinfo.io: city field is empty")}
 	}
 
-	return GeoAPIResult{City: result.City}
+	return GeoAPIResult{APIName: "ipinfo.io", City: result.City}
 }
 
 // fetchFromIPAPI запрашивает данные от ip-api.com
@@ -91,25 +93,25 @@ func fetchFromIPAPI(ip string) GeoAPIResult {
 
 	resp, err := client.Get(url)
 	if err != nil {
-		return GeoAPIResult{Error: fmt.Errorf("ip-api.com request failed: %w", err)}
+		return GeoAPIResult{APIName: "ip-api.com", Error: fmt.Errorf("ip-api.com request failed: %w", err)}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return GeoAPIResult{Error: fmt.Errorf("ip-api.com returned status %d", resp.StatusCode)}
+		return GeoAPIResult{APIName: "ip-api.com", Error: fmt.Errorf("ip-api.com returned status %d", resp.StatusCode)}
 	}
 
 	var result IPAPIResponse
 	if err := xml.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return GeoAPIResult{Error: fmt.Errorf("ip-api.com xml decode failed: %w", err)}
+		return GeoAPIResult{APIName: "ip-api.com", Error: fmt.Errorf("ip-api.com xml decode failed: %w", err)}
 	}
 
 	// Проверяем, что город не пустой
 	if result.City == "" {
-		return GeoAPIResult{Error: fmt.Errorf("ip-api.com: city field is empty")}
+		return GeoAPIResult{APIName: "ip-api.com", Error: fmt.Errorf("ip-api.com: city field is empty")}
 	}
 
-	return GeoAPIResult{City: result.City}
+	return GeoAPIResult{APIName: "ip-api.com", City: result.City}
 }
 
 // fetchFromIPWhoIs запрашивает данные от ipwho.is
@@ -123,25 +125,25 @@ func fetchFromIPWhoIs(ip string) GeoAPIResult {
 
 	resp, err := client.Get(url)
 	if err != nil {
-		return GeoAPIResult{Error: fmt.Errorf("ipwho.is request failed: %w", err)}
+		return GeoAPIResult{APIName: "ipwho.is", Error: fmt.Errorf("ipwho.is request failed: %w", err)}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return GeoAPIResult{Error: fmt.Errorf("ipwho.is returned status %d", resp.StatusCode)}
+		return GeoAPIResult{APIName: "ipwho.is", Error: fmt.Errorf("ipwho.is returned status %d", resp.StatusCode)}
 	}
 
 	var result IPWhoIsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return GeoAPIResult{Error: fmt.Errorf("ipwho.is json decode failed: %w", err)}
+		return GeoAPIResult{APIName: "ipwho.is", Error: fmt.Errorf("ipwho.is json decode failed: %w", err)}
 	}
 
 	// Проверяем, что город не пустой
 	if result.City == "" {
-		return GeoAPIResult{Error: fmt.Errorf("ipwho.is: city field is empty")}
+		return GeoAPIResult{APIName: "ipwho.is", Error: fmt.Errorf("ipwho.is: city field is empty")}
 	}
 
-	return GeoAPIResult{City: result.City}
+	return GeoAPIResult{APIName: "ipwho.is", City: result.City}
 }
 
 // fetchFromDBIP запрашивает данные от api.db-ip.com
@@ -155,25 +157,25 @@ func fetchFromDBIP(ip string) GeoAPIResult {
 
 	resp, err := client.Get(url)
 	if err != nil {
-		return GeoAPIResult{Error: fmt.Errorf("db-ip.com request failed: %w", err)}
+		return GeoAPIResult{APIName: "db-ip.com", Error: fmt.Errorf("db-ip.com request failed: %w", err)}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return GeoAPIResult{Error: fmt.Errorf("db-ip.com returned status %d", resp.StatusCode)}
+		return GeoAPIResult{APIName: "db-ip.com", Error: fmt.Errorf("db-ip.com returned status %d", resp.StatusCode)}
 	}
 
 	var result DBIPResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return GeoAPIResult{Error: fmt.Errorf("db-ip.com json decode failed: %w", err)}
+		return GeoAPIResult{APIName: "db-ip.com", Error: fmt.Errorf("db-ip.com json decode failed: %w", err)}
 	}
 
 	// Проверяем, что город не пустой
 	if result.City == "" {
-		return GeoAPIResult{Error: fmt.Errorf("db-ip.com: city field is empty")}
+		return GeoAPIResult{APIName: "db-ip.com", Error: fmt.Errorf("db-ip.com: city field is empty")}
 	}
 
-	return GeoAPIResult{City: result.City}
+	return GeoAPIResult{APIName: "db-ip.com", City: result.City}
 }
 
 // fetchFromIPMe запрашивает данные от ip.me
@@ -188,18 +190,18 @@ func fetchFromIPMe(ip string) GeoAPIResult {
 
 	resp, err := client.Get(url)
 	if err != nil {
-		return GeoAPIResult{Error: fmt.Errorf("ip.me request failed: %w", err)}
+		return GeoAPIResult{APIName: "ip.me", Error: fmt.Errorf("ip.me request failed: %w", err)}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return GeoAPIResult{Error: fmt.Errorf("ip.me returned status %d", resp.StatusCode)}
+		return GeoAPIResult{APIName: "ip.me", Error: fmt.Errorf("ip.me returned status %d", resp.StatusCode)}
 	}
 
 	// Читаем тело ответа
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return GeoAPIResult{Error: fmt.Errorf("ip.me read body failed: %w", err)}
+		return GeoAPIResult{APIName: "ip.me", Error: fmt.Errorf("ip.me read body failed: %w", err)}
 	}
 
 	bodyStr := strings.TrimSpace(string(bodyBytes))
@@ -207,11 +209,88 @@ func fetchFromIPMe(ip string) GeoAPIResult {
 	// Пробуем распарсить как JSON
 	var jsonResult IPMeResponse
 	if err := json.Unmarshal(bodyBytes, &jsonResult); err == nil && jsonResult.City != "" {
-		return GeoAPIResult{City: jsonResult.City}
+		return GeoAPIResult{APIName: "ip.me", City: jsonResult.City}
 	}
 
 	// Если не JSON, возможно это простой текст с IP или другой формат
 	// Для ip.me может быть специфичный формат, попробуем найти город в тексте
 	// Но по документации обычно это просто IP адрес, так что если нет JSON, возвращаем ошибку
-	return GeoAPIResult{Error: fmt.Errorf("ip.me: unable to parse response, got: %s", bodyStr)}
+	return GeoAPIResult{APIName: "ip.me", Error: fmt.Errorf("ip.me: unable to parse response, got: %s", bodyStr)}
+}
+
+// fetchAllAPIsAsync отправляет запросы ко всем 5 API параллельно
+// и собирает результаты через канал
+// Возвращает слайс результатов и количество успешных запросов
+func fetchAllAPIsAsync(ip string) ([]GeoAPIResult, int) {
+	// Создаем канал для сбора результатов
+	// Буферизованный канал на 5 элементов (по одному на каждый API)
+	resultsChan := make(chan GeoAPIResult, 5)
+
+	// WaitGroup нужен для ожидания завершения всех goroutines
+	var wg sync.WaitGroup
+
+	// Запускаем 5 goroutines, каждая делает запрос к своему API
+	// Каждая goroutine будет работать независимо и параллельно
+
+	// 1. Запрос к ipinfo.io
+	wg.Add(1)
+	go func() {
+		defer wg.Done() // Уменьшаем счетчик WaitGroup когда goroutine завершится
+		result := fetchFromIPInfo(ip)
+		resultsChan <- result // Отправляем результат в канал
+	}()
+
+	// 2. Запрос к ip-api.com
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		result := fetchFromIPAPI(ip)
+		resultsChan <- result
+	}()
+
+	// 3. Запрос к ipwho.is
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		result := fetchFromIPWhoIs(ip)
+		resultsChan <- result
+	}()
+
+	// 4. Запрос к api.db-ip.com
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		result := fetchFromDBIP(ip)
+		resultsChan <- result
+	}()
+
+	// 5. Запрос к ip.me
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		result := fetchFromIPMe(ip)
+		resultsChan <- result
+	}()
+
+	// Запускаем отдельную goroutine для закрытия канала
+	// после того, как все запросы завершатся
+	go func() {
+		wg.Wait()          // Ждем, пока все 5 goroutines завершатся
+		close(resultsChan) // Закрываем канал, чтобы получатель знал, что данных больше не будет
+	}()
+
+	// Собираем все результаты из канала
+	var results []GeoAPIResult
+	successfulCount := 0
+
+	// Читаем из канала, пока он не закроется
+	for result := range resultsChan {
+		results = append(results, result)
+		// Если запрос успешен (нет ошибки), увеличиваем счетчик
+		if result.Error == nil {
+			successfulCount++
+		}
+	}
+
+	return results, successfulCount
 }
