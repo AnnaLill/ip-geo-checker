@@ -13,3 +13,8 @@ w
 G.idea/sonarlint/issuestore/5/d/5d7b900582bc1e078d5bcf55d30f05ad74375293,5\d\5d5e895a193b4bab34afffc27afa7ce9893ab342
 Å
 Q.idea/sonarlint/securityhotspotstore/5/d/5d7b900582bc1e078d5bcf55d30f05ad74375293,d\e\de5b4d0772168eae1d5690833015a7efb790c562
+7
+main.go,0\6\0607f785dfa3c3861b3239f6723eb276d8056461
+:
+
+parsers.go,1\0\1033df7ee74ae49e975edf3acd6d59613d4beff6
