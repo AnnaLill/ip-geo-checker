@@ -1,14 +1,14 @@
-package main
+package service
 
 import (
-	"fmt"
+	"ip-geo-checker/internal/geo"
 	"testing"
 )
 
 // TestCalculateCityPercentages - тест для проверки подсчета процентов
 func TestCalculateCityPercentages(t *testing.T) {
 	// Тестовые данные: 3 раза Moscow, 2 раза SPB
-	results := []GeoAPIResult{
+	results := []geo.Result{
 		{APIName: "api1", City: "Moscow", Error: nil},
 		{APIName: "api2", City: "Moscow", Error: nil},
 		{APIName: "api3", City: "Moscow", Error: nil},
@@ -27,12 +27,12 @@ func TestCalculateCityPercentages(t *testing.T) {
 // TestCalculateCityPercentagesWithErrors - тест с ошибками
 func TestCalculateCityPercentagesWithErrors(t *testing.T) {
 	// Тестовые данные: 2 успешных, 3 ошибки
-	results := []GeoAPIResult{
+	results := []geo.Result{
 		{APIName: "api1", City: "Moscow", Error: nil},
 		{APIName: "api2", City: "Moscow", Error: nil},
-		{APIName: "api3", City: "", Error: nil},                 // Пустой город
-		{APIName: "api4", City: "", Error: fmt.Errorf("error")}, // Ошибка
-		{APIName: "api5", City: "", Error: fmt.Errorf("error")}, // Ошибка
+		{APIName: "api3", City: "", Error: nil},                      // Пустой город
+		{APIName: "api4", City: "", Error: &testError{msg: "error"}}, // Ошибка
+		{APIName: "api5", City: "", Error: &testError{msg: "error"}}, // Ошибка
 	}
 
 	result := calculateCityPercentages(results)
@@ -45,9 +45,9 @@ func TestCalculateCityPercentagesWithErrors(t *testing.T) {
 
 // TestCalculateCityPercentagesEmpty - тест с пустыми результатами
 func TestCalculateCityPercentagesEmpty(t *testing.T) {
-	results := []GeoAPIResult{
-		{APIName: "api1", City: "", Error: fmt.Errorf("error")},
-		{APIName: "api2", City: "", Error: fmt.Errorf("error")},
+	results := []geo.Result{
+		{APIName: "api1", City: "", Error: &testError{msg: "error"}},
+		{APIName: "api2", City: "", Error: &testError{msg: "error"}},
 	}
 
 	result := calculateCityPercentages(results)
@@ -56,4 +56,13 @@ func TestCalculateCityPercentagesEmpty(t *testing.T) {
 	if result != expected {
 		t.Errorf("Expected empty string, got %s", result)
 	}
+}
+
+// testError простая реализация error для тестов
+type testError struct {
+	msg string
+}
+
+func (e *testError) Error() string {
+	return e.msg
 }
