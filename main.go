@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"net"
 	"net/http"
 	"sync"
 )
@@ -133,13 +134,29 @@ func (app *App) handleCheckIP(w http.ResponseWriter, r *http.Request) {
 	// Парсим JSON из тела запроса
 	var req CheckIPRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		log.Printf("Error decoding request body: %v", err)
+		http.Error(w, "Invalid JSON format", http.StatusBadRequest)
 		return
 	}
 
-	// Проверяем валидность IP (базовая проверка)
+	// Проверяем валидность IP
 	if req.IP == "" {
 		http.Error(w, "IP address is required", http.StatusBadRequest)
+		return
+	}
+
+	// Валидируем формат IP адреса (IPv4 или IPv6)
+	parsedIP := net.ParseIP(req.IP)
+	if parsedIP == nil {
+		log.Printf("Invalid IP address format: %s", req.IP)
+		http.Error(w, "Invalid IP address format", http.StatusBadRequest)
+		return
+	}
+
+	// Дополнительная проверка: IP не должен быть пустым после парсинга
+	if parsedIP.String() == "" {
+		log.Printf("Empty IP address after parsing: %s", req.IP)
+		http.Error(w, "Invalid IP address format", http.StatusBadRequest)
 		return
 	}
 
@@ -148,11 +165,13 @@ func (app *App) handleCheckIP(w http.ResponseWriter, r *http.Request) {
 	// Проверяем кэш
 	if cached, exists := app.cache.Get(req.IP); exists {
 		// Данные есть в кэше - возвращаем их
+		log.Printf("Cache hit for IP %s", req.IP)
 		app.stats.IncrementCache()
 		response = cached
 		response.FromCache = true
 	} else {
 		// Данных нет в кэше - делаем запросы к внешним API
+		log.Printf("Cache miss for IP %s, fetching from external APIs", req.IP)
 		results, successfulCount := fetchAllAPIsAsync(req.IP)
 
 		// Обновляем статистику успешных внешних запросов
@@ -163,9 +182,12 @@ func (app *App) handleCheckIP(w http.ResponseWriter, r *http.Request) {
 
 		// Если не удалось получить данные ни от одного API
 		if cityPercentages == "" {
-			http.Error(w, "Unable to get city information from any API", http.StatusServiceUnavailable)
+			log.Printf("Warning: Failed to get city information for IP %s from any API", req.IP)
+			http.Error(w, "Unable to get city information from any API. Please try again later.", http.StatusServiceUnavailable)
 			return
 		}
+
+		log.Printf("Successfully retrieved city information for IP %s: %s", req.IP, cityPercentages)
 
 		// Формируем ответ
 		response = CheckIPResponse{
@@ -179,7 +201,11 @@ func (app *App) handleCheckIP(w http.ResponseWriter, r *http.Request) {
 
 	// Отправляем JSON ответ
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Error encoding response: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
 }
 
 // handleGetStats обрабатывает GET /get_stats
@@ -199,7 +225,11 @@ func (app *App) handleGetStats(w http.ResponseWriter, r *http.Request) {
 
 	// Отправляем JSON ответ
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(stats)
+	if err := json.NewEncoder(w).Encode(stats); err != nil {
+		log.Printf("Error encoding stats response: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
 }
 
 func main() {
