@@ -137,11 +137,44 @@ func (app *App) handleCheckIP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Здесь будет логика проверки IP и запросов к внешним API
-	// Пока возвращаем заглушку
-	response := CheckIPResponse{
-		City:      "Not implemented yet",
-		FromCache: false,
+	// Проверяем валидность IP (базовая проверка)
+	if req.IP == "" {
+		http.Error(w, "IP address is required", http.StatusBadRequest)
+		return
+	}
+
+	var response CheckIPResponse
+
+	// Проверяем кэш
+	if cached, exists := app.cache.Get(req.IP); exists {
+		// Данные есть в кэше - возвращаем их
+		app.stats.IncrementCache()
+		response = cached
+		response.FromCache = true
+	} else {
+		// Данных нет в кэше - делаем запросы к внешним API
+		results, successfulCount := fetchAllAPIsAsync(req.IP)
+
+		// Обновляем статистику успешных внешних запросов
+		app.stats.IncrementExternalRequests(successfulCount)
+
+		// Подсчитываем проценты городов
+		cityPercentages := calculateCityPercentages(results)
+
+		// Если не удалось получить данные ни от одного API
+		if cityPercentages == "" {
+			http.Error(w, "Unable to get city information from any API", http.StatusServiceUnavailable)
+			return
+		}
+
+		// Формируем ответ
+		response = CheckIPResponse{
+			City:      cityPercentages,
+			FromCache: false,
+		}
+
+		// Сохраняем в кэш
+		app.cache.Set(req.IP, response)
 	}
 
 	// Отправляем JSON ответ
